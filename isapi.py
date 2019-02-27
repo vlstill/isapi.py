@@ -130,3 +130,22 @@ def load_points( course, shortcut ):
     returns a dict of mappings UCO -> (pointrs, last_change)
     """
     return dict( [ (k, (notebook_to_points( v[0] ), v[1])) for k, v in load_notebook( course, shortcut ).items() ] )
+
+def students_list( course : str ) -> List[Person]:
+    data = get_raw_data( { "kod": course, "operace": "predmet-seznam" } )
+    students : List[Person] = []
+    for st in data:
+        students.append( Person( extract( st, "JMENO" ),
+                                 extract( st, "PRIJMENI" ),
+                                 int( extract( st, "UCO" ) ) ) )
+    return students
+
+def create_notebook( course : str, name : str, short : str ) -> bool:
+    try:
+        get_raw_data( { "kod": course, "operace": "blok-novy",
+                        "jmeno": name, "zkratka": short,
+                        "nahlizi": "n", "nedoplnovat": "n", "statistika": "n"
+                      } )
+        return True
+    except ISAPIException:
+        return False
