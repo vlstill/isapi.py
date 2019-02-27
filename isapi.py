@@ -41,12 +41,18 @@ class Blok:
         return "(blok: name: " + self.name + ", shortname: " + self.short \
                 + ", type: " + str( self.type ) + ")"
 
-def extract( node, childtagname ):
+def get_node( node, childtagname, *args ):
     for child in node:
         if child.tag == childtagname:
-            return child.text
-
+            if len( args ):
+                return get_node( child, *args )
+            else:
+                return child
     raise ISAPIException( "Could not find childtagname in " + node.tag + "\ntext: " + node.text + "\nitems: " + str( node.items() ) )
+
+def extract( node, *args ):
+    return get_node( node, *args ).text
+
 
 def bloky( predmet ):
     data = get( { "kod": predmet, "operace": "bloky-seznam" } )
@@ -57,6 +63,30 @@ def bloky( predmet ):
                         , extract( child, "ZKRATKA" )
                         ) )
     return out
+
+class Person:
+    def __init__( self, name, surname, uco ):
+        self.name = name
+        self.surname = surname
+        self.uco = uco
+
+class Course:
+    def __init__( self, faculty, name, teachers ):
+        self.faculty = faculty
+        self.name = name
+        self.teachers = teachers
+
+def info( course ):
+    data = get( { "kod": course, "operace": "predmet-info" } )
+    teachers = []
+    for tutor in get_node( data, "VYUCUJICI_SEZNAM" ):
+        teachers.append( Person( extract( tutor, "JMENO" ),
+                                 extract( tutor, "PRIJMENI" ),
+                                 extract( tutor, "UCO" ) ) )
+    return Course( extract( data, "FAKULTA_ZKRATKA_DOM" ),
+                   extract( data, "NAZEV_PREDMETU" ),
+                   teachers )
+
 
 def prezencniBloky( predmet ):
     return [ x for x in bloky( predmet ) if x.type == 5 ]
