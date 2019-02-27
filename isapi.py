@@ -4,8 +4,9 @@ import xml.etree.ElementTree as ET
 import builtins
 import re
 import sys
+from typing import List, Dict, Tuple, Optional
 
-def getkey():
+def getkey() -> str:
     with open( "isapikey", "r" ) as f:
         return f.read().strip()
 
@@ -24,14 +25,14 @@ def load( url ):
 class ISAPIException ( Exception ):
     pass
 
-def get( args ):
+def get_raw_data( args ):
     args[ "klic" ] = getkey()
     args[ "fakulta" ] = "1433"
     url = "https://is.muni.cz/export/pb_blok_api?" + urllib.parse.urlencode( args )
     x = load( url )
     return x
 
-class Blok:
+class Notebook:
     def __init__( self, name, typ, short ):
         self.name = name
         self.type = typ
@@ -41,7 +42,7 @@ class Blok:
         return "(blok: name: " + self.name + ", shortname: " + self.short \
                 + ", type: " + str( self.type ) + ")"
 
-def get_node( node, childtagname, *args ):
+def get_node( node, childtagname : str, *args ):
     for child in node:
         if child.tag == childtagname:
             if len( args ):
@@ -50,53 +51,54 @@ def get_node( node, childtagname, *args ):
                 return child
     raise ISAPIException( "Could not find childtagname in " + node.tag + "\ntext: " + node.text + "\nitems: " + str( node.items() ) )
 
-def extract( node, *args ):
+def extract( node : str, *args ) -> str:
     return get_node( node, *args ).text
 
 
-def bloky( predmet ):
-    data = get( { "kod": predmet, "operace": "bloky-seznam" } )
+def get_notebooks( course : str ) -> List[Notebook]:
+    data = get_raw_data( { "kod": course, "operace": "bloky-seznam" } )
     out = []
     for child in data:
-        out.append( Blok( extract( child, "JMENO" )
-                        , int( extract( child, "TYP_ID" ) )
-                        , extract( child, "ZKRATKA" )
-                        ) )
+        out.append( Notebook( extract( child, "JMENO" )
+                            , int( extract( child, "TYP_ID" ) )
+                            , extract( child, "ZKRATKA" )
+                            ) )
     return out
 
 class Person:
-    def __init__( self, name, surname, uco ):
+    def __init__( self, name : str, surname : str, uco : int ) -> None:
         self.name = name
         self.surname = surname
         self.uco = uco
 
 class Course:
-    def __init__( self, faculty, name, teachers ):
+    def __init__( self, faculty : str, name : str, teachers : List[Person] ) -> None:
         self.faculty = faculty
         self.name = name
         self.teachers = teachers
 
-def info( course ):
-    data = get( { "kod": course, "operace": "predmet-info" } )
+def course_info( course : str ) -> Course:
+    data = get_raw_data( { "kod": course, "operace": "predmet-info" } )
     teachers = []
     for tutor in get_node( data, "VYUCUJICI_SEZNAM" ):
         teachers.append( Person( extract( tutor, "JMENO" ),
                                  extract( tutor, "PRIJMENI" ),
-                                 extract( tutor, "UCO" ) ) )
+                                 int( extract( tutor, "UCO" ) ) ) )
     return Course( extract( data, "FAKULTA_ZKRATKA_DOM" ),
                    extract( data, "NAZEV_PREDMETU" ),
                    teachers )
 
 
-def prezencniBloky( predmet ):
-    return [ x for x in bloky( predmet ) if x.type == 5 ]
+def get_attendance_notebooks( course : str ) -> List[Notebook]:
+    return [ x for x in get_notebooks( course ) if x.type == 5 ]
 
-def loadBlok( predmet, zkratka ):
+
+def load_notebook( course : str, shortcut : str ) -> Dict[str, Tuple[str, str]]:
     """
     returns a dict of mappings UCO -> (contents, last_change)
     """
-    data = get( { "kod": predmet, "operace": "blok-dej-obsah", "zkratka": zkratka } );
-    out = {}
+    data = get_raw_data( { "kod": course, "operace": "blok-dej-obsah", "zkratka": shortcut } );
+    out : Dict[str, Tuple[str, str]] = {}
     for child in data:
         assert child.tag == "STUDENT"
         skip = 0
@@ -107,24 +109,24 @@ def loadBlok( predmet, zkratka ):
             continue
 
         uco = extract( child, "UCO" )
-        obsah = extract( child, "OBSAH" )
-        zmena = extract( child, "ZMENENO" )
+        contents = extract( child, "OBSAH" )
+        change = extract( child, "ZMENENO" )
         assert uco not in out.keys()
 
-        out[ uco ] = (obsah, zmena)
+        out[ uco ] = (contents, change)
     return out
 
 starnum = re.compile( "\*[0-9]*\.?[0-9]*" )
 
-def blokToPoints( obsah ):
+def notebook_to_points( contents ):
     def ft( x ):
         if x == "":
             return 0
         return float( x )
-    return sum( [ ft( x.group()[1:] ) for x in starnum.finditer( obsah ) ] )
+    return sum( [ ft( x.group()[1:] ) for x in starnum.finditer( contents ) ] )
 
-def loadPoints( predmet, zkratka ):
+def load_points( course, shortcut ):
     """
     returns a dict of mappings UCO -> (pointrs, last_change)
     """
-    return dict( [ (k, (blokToPoints( v[0] ), v[1])) for k, v in loadBlok( predmet, zkratka ).items() ] )
+    return dict( [ (k, (notebook_to_points( v[0] ), v[1])) for k, v in load_notebook( course, shortcut ).items() ] )
