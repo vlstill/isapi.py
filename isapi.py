@@ -7,10 +7,16 @@ import sys
 from typing import List, Dict, Tuple, Optional
 import datetime
 from tzlocal import get_localzone
+import os.path
 
-def getkey() -> str:
-    with open( "isapikey", "r" ) as f:
-        return f.read().strip()
+def getkey(path) -> Optional[str]:
+    try:
+        with open( os.path.join(path, "isapikey"), "r" ) as f:
+            return f.read().strip()
+    except:
+        return None
+
+API_KEY = getkey(".")
 
 def load( url ):
     try:
@@ -28,7 +34,7 @@ class ISAPIException ( Exception ):
     pass
 
 def get_raw_data( args ):
-    args[ "klic" ] = getkey()
+    args[ "klic" ] = API_KEY
     args[ "fakulta" ] = "1433"
     url = "https://is.muni.cz/export/pb_blok_api?" + urllib.parse.urlencode( args )
     x = load( url )
