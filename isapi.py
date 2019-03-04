@@ -171,3 +171,14 @@ def parse_date( date : str ) -> datetime.datetime:
 def serialize_date( date : datetime.datetime ) -> str:
     return "%04d%02d%02d%02d%02d%02d" % (date.year, date.month, date.day,
                                          date.hour, date.minute, date.second)
+
+def store(course : str, short : str, uco : str, contents : str,
+          timestamp : Optional[datetime.datetime] = None, overwrite = False) -> None:
+    args = { "kod": course, "operace": "blok-pis-student-obsah",
+             "zkratka": short, "uco": uco, "obsah": contents,
+           }
+    if overwrite:
+        args['prepis'] = 'a'
+    if timestamp is not None:
+        args['poslzmeneno'] = serialize_date(timestamp)
+    get_raw_data( args )
