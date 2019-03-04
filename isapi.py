@@ -6,6 +6,7 @@ import re
 import sys
 from typing import List, Dict, Tuple, Optional
 import datetime
+from tzlocal import get_localzone
 
 def getkey() -> str:
     with open( "isapikey", "r" ) as f:
@@ -152,12 +153,14 @@ def create_notebook( course : str, name : str, short : str ) -> bool:
         return False
 
 def parse_date( date : str ) -> datetime.datetime:
-    return datetime.datetime(year = int(date[:4]),
-                             month = int(date[4:6]),
-                             day = int(date[6:8]),
-                             hour = int(date[8:10]),
-                             minute = int(date[10:12]),
-                             second = int(date[12:14]))
+    raw = datetime.datetime(year = int(date[:4]),
+                            month = int(date[4:6]),
+                            day = int(date[6:8]),
+                            hour = int(date[8:10]),
+                            minute = int(date[10:12]),
+                            second = int(date[12:14]))
+    tz = get_localzone()
+    return tz.localize(raw, is_dst=None)
 
 def serialize_date( date : datetime.datetime ) -> str:
     return "%04d%02d%02d%02d%02d%02d" % (date.year, date.month, date.day,
