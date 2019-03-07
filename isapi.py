@@ -1,5 +1,4 @@
-import urllib.request
-import urllib.parse
+import requests
 import xml.etree.ElementTree as ET
 import builtins
 import re
@@ -18,26 +17,19 @@ def getkey(path) -> Optional[str]:
 
 API_KEY = getkey(".")
 
-def load( url ):
-    try:
-        req = urllib.request.urlopen( url )
-        if req.status != 200:
-            raise ISAPIException( "Error " + str( req.status ) + ": " + req.read() )
-    except urllib.error.HTTPError as ex:
-        raise ISAPIException( "Error: " + str( ex ) )
-    x = ET.fromstring( req.read().decode( "utf-8" ) )
-    if x.tag == "CHYBA":
-        raise ISAPIException( x.text )
-    return x
-
 class ISAPIException ( Exception ):
     pass
 
-def get_raw_data( args ):
+def get_raw_data( args : dict ) -> ET.Element:
     args[ "klic" ] = API_KEY
     args[ "fakulta" ] = "1433"
-    url = "https://is.muni.cz/export/pb_blok_api?" + urllib.parse.urlencode( args )
-    x = load( url )
+    base_url = "https://is.muni.cz/export/pb_blok_api"
+    req = requests.post( base_url, args )
+    if req.status_code != 200:
+        raise ISAPIException( "Error {} {}".format( req.status_code, req.reason ) )
+    x = ET.fromstring( req.text )
+    if x.tag == "CHYBA":
+        raise ISAPIException( x.text )
     return x
 
 class Notebook:
@@ -59,7 +51,7 @@ def get_node( node, childtagname : str, *args ):
                 return child
     raise ISAPIException( "Could not find childtagname in " + node.tag + "\ntext: " + node.text + "\nitems: " + str( node.items() ) )
 
-def extract( node : str, *args ) -> str:
+def extract( node : ET.Element, *args ) -> str:
     return get_node( node, *args ).text
 
 
