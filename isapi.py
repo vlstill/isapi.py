@@ -67,14 +67,19 @@ def __extract(node : ET.Element, *args) -> str:
 class IS:
     STARNUM = re.compile(r"\*[0-9]*\.?[0-9]*")
 
-    def __init__(self, api_key : Optional[str] = None) -> None:
-        self.__API_KEY = api_key
-        if self.__API_KEY is None:
-            self.__API_KEY = getkey(".")
+    def __init__(self, course : str = None, api_key : Optional[str] = None) -> None:
+        if api_key is None:
+            api_key = getkey(".")
+        self.__DEFARGS = {"klic": api_key,
+                          "fakulta": "1433",
+                         }
+        if course is not None:
+            self.__DEFARGS['kod'] = course
 
     def __raw_req(self, args : dict) -> ET.Element:
-        args["klic"] = self.__API_KEY
-        args["fakulta"] = "1433"
+        for k, v in self.__DEFARGS.items():
+            if k not in args:
+                args[k] = v
         base_url = "https://is.muni.cz/export/pb_blok_api"
         req = requests.post(base_url, args)
         if req.status_code != 200:
