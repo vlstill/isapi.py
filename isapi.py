@@ -11,19 +11,19 @@ def getkey(path) -> Optional[str]:
     try:
         with open(os.path.join(path, "isapikey"), "r") as f:
             return f.read().strip()
-    except:
+    except Exception:
         return None
 
 
-API_KEY = getkey(".")
+__API_KEY = getkey(".")
 
 
 class ISAPIException (Exception):
     pass
 
 
-def get_raw_data(args : dict) -> ET.Element:
-    args["klic"] = API_KEY
+def __get_raw_data(args : dict) -> ET.Element:
+    args["klic"] = __API_KEY
     args["fakulta"] = "1433"
     base_url = "https://is.muni.cz/export/pb_blok_api"
     req = requests.post(base_url, args)
@@ -66,7 +66,7 @@ def extract(node : ET.Element, *args) -> str:
 
 
 def get_notebooks(course : str) -> List[Notebook]:
-    data = get_raw_data({"kod": course, "operace": "bloky-seznam"})
+    data = __get_raw_data({"kod": course, "operace": "bloky-seznam"})
     out = []
     for child in data:
         out.append(Notebook(extract(child, "JMENO"),
@@ -91,7 +91,7 @@ class Course:
 
 
 def course_info(course : str) -> Course:
-    data = get_raw_data({"kod": course, "operace": "predmet-info"})
+    data = __get_raw_data({"kod": course, "operace": "predmet-info"})
     teachers = []
     for tutor in get_node(data, "VYUCUJICI_SEZNAM"):
         teachers.append(Person(extract(tutor, "JMENO"),
@@ -110,15 +110,15 @@ def load_notebook(course : str, shortcut : str) -> Dict[str, Tuple[str, str]]:
     """
     returns a dict of mappings UCO -> (contents, last_change)
     """
-    data = get_raw_data({"kod": course, "operace": "blok-dej-obsah",
-                         "zkratka": shortcut})
+    data = __get_raw_data({"kod": course, "operace": "blok-dej-obsah",
+                           "zkratka": shortcut})
     out : Dict[str, Tuple[str, str]] = {}
     for child in data:
         assert child.tag == "STUDENT"
-        skip = 0
+        skip = False
         for c in child:
             if c.tag == "NEMA_POZN_BLOK":
-                skip = 1
+                skip = True
         if skip:
             continue
 
@@ -151,7 +151,7 @@ def load_points(course, shortcut):
 
 
 def students_list(course : str) -> List[Person]:
-    data = get_raw_data({"kod": course, "operace": "predmet-seznam"})
+    data = __get_raw_data({"kod": course, "operace": "predmet-seznam"})
     students : List[Person] = []
     for st in data:
         students.append(Person(extract(st, "JMENO"),
@@ -162,9 +162,9 @@ def students_list(course : str) -> List[Person]:
 
 def create_notebook(course : str, name : str, short : str) -> bool:
     try:
-        get_raw_data({"kod": course, "operace": "blok-novy",
-                      "jmeno": name, "zkratka": short,
-                      "nahlizi": "n", "nedoplnovat": "n", "statistika": "n"})
+        __get_raw_data({"kod": course, "operace": "blok-novy",
+                        "jmeno": name, "zkratka": short,
+                        "nahlizi": "n", "nedoplnovat": "n", "statistika": "n"})
         return True
     except ISAPIException:
         return False
@@ -195,4 +195,4 @@ def store(course : str, short : str, uco : str, contents : str,
         args['prepis'] = 'a'
     if timestamp is not None:
         args['poslzmeneno'] = serialize_date(timestamp)
-    get_raw_data(args)
+    __get_raw_data(args)
