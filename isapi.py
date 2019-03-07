@@ -1,8 +1,6 @@
 import requests
 import xml.etree.ElementTree as ET
-import builtins
 import re
-import sys
 from typing import List, Dict, Tuple, Optional
 import datetime
 from tzlocal import get_localzone
