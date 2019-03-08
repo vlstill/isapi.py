@@ -67,7 +67,7 @@ def __extract(node : ET.Element, *args) -> str:
 class IS:
     STARNUM = re.compile(r"\*[0-9]*\.?[0-9]*")
 
-    def __init__(self, course : str = None, api_key : Optional[str] = None) -> None:
+    def __init__(self, course : str = None, faculty = None, api_key : Optional[str] = None) -> None:
         if api_key is None:
             api_key = getkey(".")
         self.__DEFARGS = {"klic": api_key,
@@ -75,6 +75,8 @@ class IS:
                          }
         if course is not None:
             self.__DEFARGS['kod'] = course
+        if faculty is not None:
+            self.__DEFARGS['fakulta'] = faculty
 
     def __raw_req(self, args : dict) -> ET.Element:
         for k, v in self.__DEFARGS.items():
