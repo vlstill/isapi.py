@@ -123,6 +123,9 @@ class Connection:
             if k not in args or args[k] is None:
                 args[k] = v
         base_url = "https://is.muni.cz/export/pb_blok_api"
+        assert args['kod'] is not None, "Course id not set"
+        assert args['klic'] is not None, "API key not set"
+
         req = requests.post(base_url, args)
         if req.status_code != 200:
             raise ISAPIException("Error {} {}".format(req.status_code, req.reason))
