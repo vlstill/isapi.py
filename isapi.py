@@ -67,22 +67,6 @@ def _extract(node : ET.Element, *args) -> str:
     return t
 
 
-def parse_date(date : str) -> datetime.datetime:
-    raw = datetime.datetime(year = int(date[:4]),
-                            month = int(date[4:6]),
-                            day = int(date[6:8]),
-                            hour = int(date[8:10]),
-                            minute = int(date[10:12]),
-                            second = int(date[12:14]))
-    tz = get_localzone()
-    return tz.localize(raw, is_dst=None)
-
-
-def serialize_date(date : datetime.datetime) -> str:
-    return "%04d%02d%02d%02d%02d%02d" % (date.year, date.month, date.day,
-                                         date.hour, date.minute, date.second)
-
-
 class Entry:
     STARNUM = re.compile(r"\*[0-9]*\.?[0-9]*")
 
@@ -231,3 +215,28 @@ class Connection:
         if entry.timestamp is not None:
             args['poslzmeneno'] = serialize_date(entry.timestamp)
         self.__raw_req(args)
+
+
+    @staticmethod
+    def parse_date(date : str) -> datetime.datetime:
+        raw = datetime.datetime(year = int(date[:4]),
+                                month = int(date[4:6]),
+                                day = int(date[6:8]),
+                                hour = int(date[8:10]),
+                                minute = int(date[10:12]),
+                                second = int(date[12:14]))
+        tz = get_localzone()
+        return tz.localize(raw, is_dst=None)
+
+
+    @staticmethod
+    def serialize_date(date : datetime.datetime) -> str:
+        return "%04d%02d%02d%02d%02d%02d" % (date.year, date.month, date.day,
+                                             date.hour, date.minute, date.second)
+
+def serialize_date(date : datetime.datetime) -> str:
+    return Connection.serialize_date(date)
+
+
+def parse_date(date : str) -> datetime.datetime:
+    return Connection.parse_date(date)
