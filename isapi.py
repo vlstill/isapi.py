@@ -48,11 +48,11 @@ def getkey(path) -> Optional[str]:
         return None
 
 
-def __get_node(node : ET.Element, childtagname : str, *args) -> ET.Element:
+def _get_node(node : ET.Element, childtagname : str, *args) -> ET.Element:
     for child in node:
         if child.tag == childtagname:
             if len(args):
-                return __get_node(child, *args)
+                return _get_node(child, *args)
             else:
                 return child
     raise ISAPIException(
@@ -60,8 +60,8 @@ def __get_node(node : ET.Element, childtagname : str, *args) -> ET.Element:
               .format(node.tag, node.text, node.items()))
 
 
-def __extract(node : ET.Element, *args) -> str:
-    t = __get_node(node, *args).text
+def _extract(node : ET.Element, *args) -> str:
+    t = _get_node(node, *args).text
     if t is None:
         return ""
     return t
@@ -142,9 +142,9 @@ class Connection:
         data = self.__raw_req({"kod": course, "operace": "bloky-seznam"})
         out = []
         for child in data:
-            out.append(Notebook(__extract(child, "JMENO"),
-                                int(__extract(child, "TYP_ID")),
-                                __extract(child, "ZKRATKA")))
+            out.append(Notebook(_extract(child, "JMENO"),
+                                int(_extract(child, "TYP_ID")),
+                                _extract(child, "ZKRATKA")))
         return out
 
     def course_info(self, course : Optional[str] = None) -> Course:
@@ -153,12 +153,12 @@ class Connection:
         """
         data = self.__raw_req({"kod": course, "operace": "predmet-info"})
         teachers = []
-        for tutor in __get_node(data, "VYUCUJICI_SEZNAM"):
-            teachers.append(Person(__extract(tutor, "JMENO"),
-                                   __extract(tutor, "PRIJMENI"),
-                                   int(__extract(tutor, "UCO"))))
-        return Course(__extract(data, "FAKULTA_ZKRATKA_DOM"),
-                      __extract(data, "NAZEV_PREDMETU"),
+        for tutor in _get_node(data, "VYUCUJICI_SEZNAM"):
+            teachers.append(Person(_extract(tutor, "JMENO"),
+                                   _extract(tutor, "PRIJMENI"),
+                                   int(_extract(tutor, "UCO"))))
+        return Course(_extract(data, "FAKULTA_ZKRATKA_DOM"),
+                      _extract(data, "NAZEV_PREDMETU"),
                       teachers)
 
     def attendance_notebooks(self, course : Optional[str] = None) -> List[Notebook]:
@@ -184,9 +184,9 @@ class Connection:
             if skip:
                 continue
 
-            uco = int(__extract(child, "UCO"))
-            contents = __extract(child, "OBSAH")
-            change = __extract(child, "ZMENENO")
+            uco = int(_extract(child, "UCO"))
+            contents = _extract(child, "OBSAH")
+            change = _extract(child, "ZMENENO")
             assert uco not in out.keys()
 
             out[uco] = Entry(contents, parse_date(change))
@@ -199,9 +199,9 @@ class Connection:
         data = self.__raw_req({"kod": course, "operace": "predmet-seznam"})
         students : List[Person] = []
         for st in data:
-            students.append(Person(__extract(st, "JMENO"),
-                                   __extract(st, "PRIJMENI"),
-                                   int(__extract(st, "UCO"))))
+            students.append(Person(_extract(st, "JMENO"),
+                                   _extract(st, "PRIJMENI"),
+                                   int(_extract(st, "UCO"))))
         return students
 
     def create_notebook(self, name : str, short : str, course : Optional[str] = None) -> bool:
