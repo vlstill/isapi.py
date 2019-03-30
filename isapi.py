@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET
 import re
 from typing import List, Dict, Tuple, Optional
 import datetime
-from tzlocal import get_localzone
+from tzlocal import get_localzone # type: ignore
 import os.path
 
 
@@ -37,7 +37,7 @@ class Notebook:
                 + ", type: " + str(self.type) + ")"
 
 
-def getkey(path) -> Optional[str]:
+def getkey(path : str) -> Optional[str]:
     """
     Try to parse api key from given directory from file name "isapikey".
     """
@@ -48,7 +48,7 @@ def getkey(path) -> Optional[str]:
         return None
 
 
-def _get_node(node : ET.Element, childtagname : str, *args) -> ET.Element:
+def _get_node(node : ET.Element, childtagname : str, *args : str) -> ET.Element:
     for child in node:
         if child.tag == childtagname:
             if len(args):
@@ -60,7 +60,7 @@ def _get_node(node : ET.Element, childtagname : str, *args) -> ET.Element:
               .format(node.tag, node.text, node.items()))
 
 
-def _extract(node : ET.Element, *args) -> str:
+def _extract(node : ET.Element, *args : str) -> str:
     t = _get_node(node, *args).text
     if t is None:
         return ""
@@ -75,7 +75,7 @@ class Entry:
         self.timestamp = timestamp
 
     def points(self) -> float:
-        def ft(x):
+        def ft(x : str) -> float:
             if x == "":
                 return 0
             return float(x)
@@ -84,7 +84,9 @@ class Entry:
 
 class Connection:
 
-    def __init__(self, course : str = None, faculty = None, api_key : Optional[str] = None) -> None:
+    def __init__(self, course : Optional[str] = None,
+                 faculty : Optional[str] = None,
+                 api_key : Optional[str] = None) -> None:
         """
         Initialize a new instance.
         Course has to be set.
@@ -201,7 +203,7 @@ class Connection:
             return False
 
     def store(self, short : str, uco : int, entry : Entry, course : Optional[str],
-              overwrite = False)\
+              overwrite : bool = False)\
               -> None:
         """
         Writes given (modified) entry to IS, the update is by default works
@@ -226,7 +228,7 @@ class Connection:
                                 minute = int(date[10:12]),
                                 second = int(date[12:14]))
         tz = get_localzone()
-        return tz.localize(raw, is_dst=None)
+        return tz.localize(raw, is_dst=None) # type: ignore
 
 
     @staticmethod
