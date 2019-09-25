@@ -39,10 +39,10 @@ class Notebook:
 
 def getkey(path : str) -> Optional[str]:
     """
-    Try to parse api key from given directory from file name "isapikey".
+    Try to parse api key from given directory from file name "isnotebook.key".
     """
     try:
-        with open(os.path.join(path, "isapikey"), "r") as f:
+        with open(os.path.join(path, "isnotebook.key"), "r") as f:
             return f.read().strip()
     except Exception:
         return None
