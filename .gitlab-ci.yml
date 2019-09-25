@@ -1,0 +1,7 @@
+image: python:3.7
+
+check:
+  script:
+      - make check
+  tags:
+      - shared-fi
