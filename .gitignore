@@ -1,4 +1,5 @@
 isapikey
+*.key
 .mypy_cache
 *.swp
 *.swo
