@@ -5,10 +5,7 @@ from typing import List, Dict, Tuple, Optional
 import datetime
 from tzlocal import get_localzone # type: ignore
 import os.path
-
-
-class ISAPIException (Exception):
-    pass
+from iscommon import ISAPIException
 
 
 class Person:

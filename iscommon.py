@@ -1,0 +1,2 @@
+class ISAPIException (Exception):
+    pass
