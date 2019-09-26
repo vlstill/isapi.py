@@ -2,7 +2,7 @@ image: python:3.7
 
 before_script:
     - apt-get update
-    - apt-get install -yy mypy
+    - apt-get install -yy mypy python3-aiohttp
 
 check:
   script:
