@@ -104,14 +104,15 @@ class Connection:
 							content_type=resp.content_type, meta=meta)
 
 
-def sync_list_directory(path : str, api_key : Optional[APIKey] = None) -> DirMeta:
-	async def ld() -> DirMeta:
-		async with Connection(api_key) as conn:
-			return typing.cast(DirMeta, await conn.list_directory(path))
-	return asyncio.run(ld())
+	def sync_list_directory(self, path : Union[str, DirMeta]) -> DirMeta:
+		async def ld() -> DirMeta:
+			async with self as conn:
+				return typing.cast(DirMeta, await conn.list_directory(path))
+		return asyncio.run(ld())
 
-def sync_get_file(path : str, api_key : Optional[APIKey] = None) -> FileData:
-	async def gf() -> FileData:
-		async with Connection(api_key) as conn:
-			return typing.cast(FileData, await conn.get_file(path))
-	return asyncio.run(gf())
+
+	def sync_get_file(self, path : Union[str, FileMeta]) -> FileData:
+		async def gf() -> FileData:
+			async with self as conn:
+				return typing.cast(FileData, await conn.get_file(path))
+		return asyncio.run(gf())
