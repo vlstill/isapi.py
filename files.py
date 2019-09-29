@@ -1,7 +1,7 @@
 import asyncio
 import aiohttp
 import json
-from iscommon import ISAPIException
+from isapi.iscommon import ISAPIException
 from typing import Optional, Union, List
 import typing
 
