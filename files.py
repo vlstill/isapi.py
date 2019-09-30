@@ -1,5 +1,5 @@
 import asyncio
-import aiohttp
+import requests
 import json
 from isapi.iscommon import ISAPIException
 from typing import Optional, Union, List
@@ -61,25 +61,12 @@ class Connection:
             with open("isfiles.key") as f:
                 self.api_key = APIKey(f.read().strip())
         login, password = self.api_key.raw_api_key.split(':', 1)
-        self.auth = aiohttp.BasicAuth(login, password)
-        self.session : Optional[aiohttp.ClientSession] = None
+        self.auth = (login, password)
 
     def _get(self, url : str):
-        assert self.session is not None
-        return self.session.get(url, auth=self.auth)
+        return requests.get(url, auth=self.auth)
 
-    async def __aenter__(self):
-        assert self.session is None
-        self.session = aiohttp.ClientSession()
-        await self.session.__aenter__()
-        return self
-
-    async def __aexit__(self, type, value, traceback):
-        r = await self.session.__aexit__(type, value, traceback)
-        self.session = None
-        return r
-
-    async def list_directory(self, path : Union[str, DirMeta]) -> DirMeta:
+    def list_directory(self, path : Union[str, DirMeta]) -> DirMeta:
         """
         Expects an IS path, e.g. /el/fi/podzim2018/IB015/ode/hw12/ or a DirMeta
         object extracted by earlier query. Retuns a DirMeta with single level
@@ -87,37 +74,24 @@ class Connection:
         """
         if not isinstance(path, str):
             path = path.ispath
-        raw = f'https://is.muni.cz/auth/dok/fmgr_api?url={path};format=json'
-        async with self._get(raw) as resp:
-            text = await resp.text()
-            data = json.loads(text)
-            if "chyba" in data:
-                emsg = data['chyba']
-                raise ISAPIException(f"File manager API error: {emsg}")
-            dirmeta = DirMeta(data["uzel"][0])
-            for i in data["uzel"][0]["poduzly"]["poduzel"]:
-                dirmeta._append(i)
-            return dirmeta
+        text = self._get(f'https://is.muni.cz/auth/dok/fmgr_api?url={path};format=json').text
+        data = json.loads(text)
+        if "chyba" in data:
+            emsg = data['chyba']
+            raise ISAPIException(f"File manager API error: {emsg}")
+        dirmeta = DirMeta(data["uzel"][0])
+        for i in data["uzel"][0]["poduzly"]["poduzel"]:
+            dirmeta._append(i)
+        return dirmeta
 
-    async def get_file(self, path : Union[str, FileMeta]) -> FileData:
+    def get_file(self, path : Union[str, FileMeta]) -> FileData:
         meta : Optional[FileMeta] = None
         if not isinstance(path, str):
             meta = path
             path = path.ispath
-        async with self._get(f'https://is.muni.cz/auth{path}') as resp:
-            return FileData(data=await resp.read(), charset=resp.charset,
-                            content_type=resp.content_type, meta=meta)
-
-    def sync_list_directory(self, path : Union[str, DirMeta]) -> DirMeta:
-        async def ld() -> DirMeta:
-            async with self as conn:
-                return typing.cast(DirMeta, await conn.list_directory(path))
-        return asyncio.run(ld())
-
-    def sync_get_file(self, path : Union[str, FileMeta]) -> FileData:
-        async def gf() -> FileData:
-            async with self as conn:
-                return typing.cast(FileData, await conn.get_file(path))
-        return asyncio.run(gf())
+        resp = self._get(f'https://is.muni.cz/auth{path}')
+        return FileData(data=resp.content, charset=resp.encoding,
+                        content_type=resp.headers.get("content-type"),
+                        meta=meta)
 
 # vim: colorcolumn=80 expandtab sw=4 ts=4
