@@ -80,8 +80,9 @@ class Connection:
             emsg = data['chyba']
             raise ISAPIException(f"File manager API error: {emsg}")
         dirmeta = DirMeta(data["uzel"][0])
-        for i in data["uzel"][0]["poduzly"]["poduzel"]:
-            dirmeta._append(i)
+        if "poduzly" in data["uzel"][0]:
+            for i in data["uzel"][0]["poduzly"]["poduzel"]:
+                dirmeta._append(i)
         return dirmeta
 
     def get_file(self, path : Union[str, FileMeta]) -> FileData:
