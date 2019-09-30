@@ -6,6 +6,10 @@ from typing import Optional, Union, List
 import typing
 
 
+class FileAPIException(ISAPIException):
+    pass
+
+
 class APIKey:
     def __init__(self, raw_api_key : str):
         self.raw_api_key = raw_api_key
@@ -78,7 +82,7 @@ class Connection:
         data = json.loads(text)
         if "chyba" in data:
             emsg = data['chyba']
-            raise ISAPIException(f"File manager API error: {emsg}")
+            raise FileAPIException(f"File manager API error: {emsg}")
         dirmeta = DirMeta(data["uzel"][0])
         if "poduzly" in data["uzel"][0]:
             for i in data["uzel"][0]["poduzly"]["poduzel"]:

@@ -8,6 +8,10 @@ import os.path
 from isapi.iscommon import ISAPIException
 
 
+class NotebookException(ISAPIException):
+    pass
+
+
 class Person:
     def __init__(self, name : str, surname : str, uco : int) -> None:
         self.name = name
@@ -52,7 +56,7 @@ def _get_node(node : ET.Element, childtagname : str, *args : str) -> ET.Element:
                 return _get_node(child, *args)
             else:
                 return child
-    raise ISAPIException(
+    raise NotebookException(
               "Could not find childtagname in {}\ntext: {}\nitems: {}"
               .format(node.tag, node.text, node.items()))
 
@@ -111,10 +115,10 @@ class Connection:
 
         req = requests.post(base_url, args)
         if req.status_code != 200:
-            raise ISAPIException("Error {} {}".format(req.status_code, req.reason))
+            raise NotebookException("Error {} {}".format(req.status_code, req.reason))
         x = ET.fromstring(req.text)
         if x.tag == "CHYBA":
-            raise ISAPIException(x.text)
+            raise NotebookException(x.text)
         return x
 
     def notebooks(self, course : Optional[str] = None) -> List[Notebook]:
@@ -174,6 +178,10 @@ class Connection:
 
             out[uco] = Entry(contents, parse_date(change))
         return out
+
+    def get(self, shortcut : str, course : Optional[str] = None)\
+                      -> Dict[int, Entry]:
+        return self.notebook(shortcut, course)
 
     def students_list(self, course : Optional[str] = None) -> List[Person]:
         """
