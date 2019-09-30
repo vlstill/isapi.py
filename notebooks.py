@@ -205,9 +205,9 @@ class Connection:
         try:
             self.__raw_req({"kod": course, "operace": "blok-novy",
                             "jmeno": name, "zkratka": shortcut,
-                            "nahlizi": "y" if visible else "n",
+                            "nahlizi": "a" if visible else "n",
                             "nedoplnovat": "n",
-                            "statistika": "y" if statistics else "n" })
+                            "statistika": "a" if statistics else "n" })
             return True
         except NotebookException:
             return False
