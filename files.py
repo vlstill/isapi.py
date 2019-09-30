@@ -31,9 +31,9 @@ class FileMeta:
                 self.name = obj["jmeno_souboru"]
             self.shortname = obj["jmeno_souboru"]
             self.mime = obj["mime_type"]
-            self.author = obj["vlozil_uco"]
+            self.author = int(obj["vlozil_uco"])
         else:
-            self.author = data["zmenil_uco"]
+            self.author = int(data["zmenil_uco"])
 
 
 class DirMeta(FileMeta):
