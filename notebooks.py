@@ -195,20 +195,35 @@ class Connection:
                                    int(_extract(st, "UCO"))))
         return students
 
-    def create_notebook(self, name : str, short : str, course : Optional[str] = None) -> bool:
+    def create_notebook(self, name : str, shortcut : str,
+                        course : Optional[str] = None,
+                        visible : bool = False, statistics : bool = False)\
+                        -> bool:
         """
         Creates a new notebook given its name and shortcut.
         """
         try:
             self.__raw_req({"kod": course, "operace": "blok-novy",
-                            "jmeno": name, "zkratka": short,
-                            "nahlizi": "n", "nedoplnovat": "n", "statistika": "n"})
+                            "jmeno": name, "zkratka": shortcut,
+                            "nahlizi": "y" if visible else "n",
+                            "nedoplnovat": "n",
+                            "statistika": "y" if statistics else "n" })
             return True
-        except ISAPIException:
+        except NotebookException:
             return False
 
-    def store(self, short : str, uco : int, entry : Entry, course : Optional[str],
-              overwrite : bool = False)\
+    def get_or_create(self, name : str, shortcut : str,
+                      course : Optional[str] = None,
+                      visible : bool = False, statistics : bool = False)\
+                      -> Dict[int, Entry]:
+        if shortcut not in [ x.short for x in self.notebooks(course) ]:
+            self.create_notebook(shortcut=shortcut, name=name, course=course,
+                                 visible=visible, statistics=statistics)
+        return self.notebook(shortcut, course=course)
+
+
+    def store(self, short : str, uco : int, entry : Entry,
+              course : Optional[str] = None, overwrite : bool = False)\
               -> None:
         """
         Writes given (modified) entry to IS, the update is by default works
@@ -247,3 +262,5 @@ def serialize_date(date : datetime.datetime) -> str:
 
 def parse_date(date : str) -> datetime.datetime:
     return Connection.parse_date(date)
+
+# vim: colorcolumn=80 expandtab sw=4 ts=4
