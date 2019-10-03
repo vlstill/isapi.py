@@ -1,11 +1,15 @@
 import requests
 import xml.etree.ElementTree as ET
 import re
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Any, TypeVar, Union
 import datetime
-from tzlocal import get_localzone # type: ignore
+from tzlocal import get_localzone  # type: ignore
 import os.path
 from isapi.iscommon import ISAPIException
+
+
+A = TypeVar("A")
+B = TypeVar("B")
 
 
 class NotebookException(ISAPIException):
@@ -17,6 +21,9 @@ class Person:
         self.name = name
         self.surname = surname
         self.uco = uco
+
+    def __str__(self) -> str:
+        return f"{self.name} {self.surname} ({self.uco})"
 
 
 class Course:
@@ -38,6 +45,23 @@ class Notebook:
                 + ", type: " + str(self.type) + ")"
 
 
+class Seminars:
+    def __init__(self, stud_to_teach : Dict[int, List[Person]],
+                       teach_to_stud : Dict[int, List[Person]]):
+        self._stud_to_teach = stud_to_teach
+        self._teach_to_stud = teach_to_stud
+
+    def get_teachers(self, student : Union[int, Person]) -> List[Person]:
+        if isinstance(student, int):
+            return self._stud_to_teach[student]
+        return self._stud_to_teach[student.uco]
+
+    def get_students(self, teacher : Union[int, Person]) -> List[Person]:
+        if isinstance(teacher, int):
+            return self._teach_to_stud[teacher]
+        return self._teach_to_stud[teacher.uco]
+
+
 def getkey(path : str) -> Optional[str]:
     """
     Try to parse api key from given directory from file name "isnotebook.key".
@@ -49,7 +73,8 @@ def getkey(path : str) -> Optional[str]:
         return None
 
 
-def _get_node(node : ET.Element, childtagname : str, *args : str) -> ET.Element:
+def _get_node(node : ET.Element, childtagname : str, *args : str)\
+        -> ET.Element:
     for child in node:
         if child.tag == childtagname:
             if len(args):
@@ -71,7 +96,8 @@ def _extract(node : ET.Element, *args : str) -> str:
 class Entry:
     STARNUM = re.compile(r"\*[0-9]*\.?[0-9]*")
 
-    def __init__(self, text : str, timestamp : Optional[datetime.datetime] = None) -> None:
+    def __init__(self, text : str,
+                 timestamp : Optional[datetime.datetime] = None) -> None:
         self.text = text
         self.timestamp = timestamp
 
@@ -105,15 +131,15 @@ class Connection:
         if faculty is not None:
             self.__DEFARGS['fakulta'] = faculty
 
-    def __raw_req(self, args : dict) -> ET.Element:
+    def __raw_req(self, **kvargs : Union[Optional[str], List[str]]) -> ET.Element:
         for k, v in self.__DEFARGS.items():
-            if k not in args or args[k] is None:
-                args[k] = v
+            if k not in kvargs or kvargs[k] is None:
+                kvargs[k] = v
         base_url = "https://is.muni.cz/export/pb_blok_api"
-        assert args['kod'] is not None, "Course id not set"
-        assert args['klic'] is not None, "API key not set"
+        assert kvargs['kod'] is not None, "Course id not set"
+        assert kvargs['klic'] is not None, "API key not set"
 
-        req = requests.post(base_url, args)
+        req = requests.post(base_url, kvargs)
         if req.status_code != 200:
             raise NotebookException("Error {} {}".format(req.status_code, req.reason))
         x = ET.fromstring(req.text)
@@ -126,7 +152,7 @@ class Connection:
         Get a list of notebooks for a given course.
         If the course was set in constructor, it does not need to be set here.
         """
-        data = self.__raw_req({"kod": course, "operace": "bloky-seznam"})
+        data = self.__raw_req(kod=course, operace="bloky-seznam")
         out = []
         for child in data:
             out.append(Notebook(_extract(child, "JMENO"),
@@ -138,15 +164,78 @@ class Connection:
         """
         Get information about a course, this includes lists of teachers.
         """
-        data = self.__raw_req({"kod": course, "operace": "predmet-info"})
+        data = self.__raw_req(kod=course, operace="predmet-info")
         teachers = []
         for tutor in _get_node(data, "VYUCUJICI_SEZNAM"):
-            teachers.append(Person(_extract(tutor, "JMENO"),
-                                   _extract(tutor, "PRIJMENI"),
-                                   int(_extract(tutor, "UCO"))))
+            teachers.append(self._get_person(tutor))
         return Course(_extract(data, "FAKULTA_ZKRATKA_DOM"),
                       _extract(data, "NAZEV_PREDMETU"),
                       teachers)
+
+    @staticmethod
+    def _get_person(data : ET.Element) -> Person:
+        return Person(_extract(data, "JMENO"),
+                      _extract(data, "PRIJMENI"),
+                      int(_extract(data, "UCO")))
+
+    @staticmethod
+    def _push_dict(d : Dict[A, List[B]], key : A, val : B) -> None:
+        if key not in d:
+            d[key] = []
+        d[key].append(val)
+
+    def seminars(self, course : Optional[str] = None) -> Seminars:
+        """
+        Get information about seminars, including mapping from students to
+        teachers, and from teachers to students.
+        """
+        course_data = self.__raw_req(kod=course, operace="predmet-info")
+        seminar_ids = []
+        for sem in _get_node(course_data, "SEMINARE"):
+            if sem.tag != "SEMINAR":
+                continue
+            seminar_ids.append(_extract(sem, "OZNACENI"))
+
+        def get_mappings(data : ET.Element, kind : str) -> Tuple[dict, dict]:
+            x_to_sem : Dict[int, List[str]] = {}
+            sem_to_x : Dict[str, List[Person]] = {}
+            for sem in data:
+                if sem.tag != "SEMINAR":
+                    continue
+                semid = _extract(sem, "OZNACENI")
+                for p in sem:
+                    if p.tag != kind:
+                        continue
+                    person = self._get_person(p)
+                    self._push_dict(x_to_sem, person.uco, semid)
+                    self._push_dict(sem_to_x, semid, person)
+            return x_to_sem, sem_to_x
+
+        teachers_data = self.__raw_req(kod=course,
+                                       operace="seminar-cvicici-seznam",
+                                       seminar=seminar_ids)
+
+        teach_to_sem, sem_to_teach = get_mappings(teachers_data, "CVICICI")
+
+        students_data = self.__raw_req(kod=course, operace="seminar-seznam",
+                                      seminar=seminar_ids)
+
+        stud_to_sem, sem_to_stud = get_mappings(students_data, "STUDENT")
+
+        stud_to_teach : Dict[int, List[Person]] = {}
+        teach_to_stud : Dict[int, List[Person]] = {}
+
+        for stud, sem in stud_to_sem.items():
+            for s in sem:
+                for teach in sem_to_teach[s]:
+                    self._push_dict(stud_to_teach, stud, teach)
+
+        for teach, sem in teach_to_sem.items():
+            for s in sem:
+                for stud in sem_to_stud[s]:
+                    self._push_dict(teach_to_stud, teach, stud)
+        return Seminars(stud_to_teach=stud_to_teach,
+                        teach_to_stud=teach_to_stud)
 
     def attendance_notebooks(self, course : Optional[str] = None) -> List[Notebook]:
         """
@@ -159,8 +248,8 @@ class Connection:
         """
         Returns a mappings UCO -> Entry
         """
-        data = self.__raw_req({"kod": course, "operace": "blok-dej-obsah",
-                                    "zkratka": shortcut})
+        data = self.__raw_req(kod=course, operace="blok-dej-obsah",
+                              zkratka=shortcut)
         out : Dict[int, Entry] = {}
         for child in data:
             assert child.tag == "STUDENT"
@@ -187,7 +276,7 @@ class Connection:
         """
         Get a list of students.
         """
-        data = self.__raw_req({"kod": course, "operace": "predmet-seznam"})
+        data = self.__raw_req(kod=course, operace="predmet-seznam")
         students : List[Person] = []
         for st in data:
             students.append(Person(_extract(st, "JMENO"),
@@ -203,11 +292,11 @@ class Connection:
         Creates a new notebook given its name and shortcut.
         """
         try:
-            self.__raw_req({"kod": course, "operace": "blok-novy",
-                            "jmeno": name, "zkratka": shortcut,
-                            "nahlizi": "a" if visible else "n",
-                            "nedoplnovat": "n",
-                            "statistika": "a" if statistics else "n" })
+            self.__raw_req(kod=course, operace="blok-novy",
+                           jmeno=name, zkratka=shortcut,
+                           nahlizi="a" if visible else "n",
+                           nedoplnovat="n",
+                           statistika="a" if statistics else "n")
             return True
         except NotebookException:
             return False
@@ -236,7 +325,7 @@ class Connection:
             args['prepis'] = 'a'
         if entry.timestamp is not None:
             args['poslzmeneno'] = serialize_date(entry.timestamp)
-        self.__raw_req(args)
+        self.__raw_req(**args)
 
 
     @staticmethod
