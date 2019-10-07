@@ -53,13 +53,13 @@ class Seminars:
 
     def get_teachers(self, student : Union[int, Person]) -> List[Person]:
         if isinstance(student, int):
-            return self._stud_to_teach[student]
-        return self._stud_to_teach[student.uco]
+            return self._stud_to_teach.get(student, [])
+        return self._stud_to_teach.get(student.uco, [])
 
     def get_students(self, teacher : Union[int, Person]) -> List[Person]:
         if isinstance(teacher, int):
-            return self._teach_to_stud[teacher]
-        return self._teach_to_stud[teacher.uco]
+            return self._teach_to_stud.get(teacher, [])
+        return self._teach_to_stud.get(teacher.uco, [])
 
 
 def getkey(path : str) -> Optional[str]:
