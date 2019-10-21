@@ -1,5 +1,6 @@
 import asyncio
 import requests
+import requests.exceptions
 import json
 from isapi.iscommon import ISAPIException
 from typing import Optional, Union, List
@@ -68,7 +69,10 @@ class Connection:
         self.auth = (login, password)
 
     def _get(self, url : str):
-        return requests.get(url, auth=self.auth)
+        try:
+            return requests.get(url, auth=self.auth)
+        except requests.exceptions.RequestException as ex:
+            raise FileAPIException(f"Connection error: {ex}")
 
     def list_directory(self, path : Union[str, DirMeta]) -> DirMeta:
         """
