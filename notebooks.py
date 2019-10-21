@@ -1,4 +1,5 @@
 import requests
+import requests.exceptions
 import xml.etree.ElementTree as ET
 import re
 from typing import List, Dict, Tuple, Optional, Any, TypeVar, Union
@@ -139,7 +140,10 @@ class Connection:
         assert kvargs['kod'] is not None, "Course id not set"
         assert kvargs['klic'] is not None, "API key not set"
 
-        req = requests.post(base_url, kvargs)
+        try:
+            req = requests.post(base_url, kvargs)
+        except requests.exceptions.RequestException as ex:
+            raise NotebookException(f"Connection error: {ex}")
         if req.status_code != 200:
             raise NotebookException("Error {} {}".format(req.status_code, req.reason))
         x = ET.fromstring(req.text)
