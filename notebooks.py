@@ -341,7 +341,12 @@ class Connection:
                                 minute = int(date[10:12]),
                                 second = int(date[12:14]))
         tz = get_localzone()
-        return tz.localize(raw, is_dst=None) # type: ignore
+        try:
+            return tz.localize(raw, is_dst=None)  # type: ignore
+        except Exception:
+            return tz.localize(raw, is_dst=False)  # type: ignore
+
+
 
 
     @staticmethod
