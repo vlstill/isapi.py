@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 import re
 from typing import List, Dict, Tuple, Optional, Any, TypeVar, Union
 import datetime
-from tzlocal import get_localzone  # type: ignore
+from tzlocal import get_localzone
 import os.path
 from isapi.iscommon import ISAPIException
 
@@ -342,9 +342,9 @@ class Connection:
                                 second = int(date[12:14]))
         tz = get_localzone()
         try:
-            return tz.localize(raw, is_dst=None)  # type: ignore
+            return tz.localize(raw, is_dst=None)
         except Exception:
-            return tz.localize(raw, is_dst=False)  # type: ignore
+            return tz.localize(raw, is_dst=False)
 
 
 
