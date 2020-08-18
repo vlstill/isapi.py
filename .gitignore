@@ -4,3 +4,4 @@ isapikey
 *.swp
 *.swo
 __pycache__
+make-full.log
