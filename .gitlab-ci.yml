@@ -2,7 +2,7 @@ image: python:3.7
 
 before_script:
     - apt-get update
-    - apt-get install -yy mypy
+    - apt-get install -yy mypy flake8
 
 check:
   script:
