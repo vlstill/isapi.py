@@ -2,7 +2,7 @@ import requests
 import requests.exceptions
 import xml.etree.ElementTree as ET
 import re
-from typing import List, Dict, Tuple, Optional, Any, TypeVar, Union
+from typing import List, Dict, Tuple, Optional, TypeVar, Union
 import datetime
 from tzlocal import get_localzone  # type: ignore
 import os.path
@@ -18,7 +18,7 @@ class NotebookException(ISAPIException):
 
 
 class Person:
-    def __init__(self, name : str, surname : str, uco : int) -> None:
+    def __init__(self, name: str, surname: str, uco: int) -> None:
         self.name = name
         self.surname = surname
         self.uco = uco
@@ -28,42 +28,42 @@ class Person:
 
 
 class Course:
-    def __init__(self, faculty : str, name : str, teachers : List[Person])\
-                 -> None:
+    def __init__(self, faculty: str, name: str, teachers: List[Person])\
+            -> None:
         self.faculty = faculty
         self.name = name
         self.teachers = teachers
 
 
 class Notebook:
-    def __init__(self, name : str, typ : int, short : str) -> None:
+    def __init__(self, name: str, typ: int, short: str) -> None:
         self.name = name
         self.type = typ
         self.short = short
 
     def __str__(self) -> str:
         return "(blok: name: " + self.name + ", shortname: " + self.short \
-                + ", type: " + str(self.type) + ")"
+            + ", type: " + str(self.type) + ")"
 
 
 class Seminars:
-    def __init__(self, stud_to_teach : Dict[int, List[Person]],
-                       teach_to_stud : Dict[int, List[Person]]):
+    def __init__(self, stud_to_teach: Dict[int, List[Person]],
+                 teach_to_stud: Dict[int, List[Person]]) -> None:
         self._stud_to_teach = stud_to_teach
         self._teach_to_stud = teach_to_stud
 
-    def get_teachers(self, student : Union[int, Person]) -> List[Person]:
+    def get_teachers(self, student: Union[int, Person]) -> List[Person]:
         if isinstance(student, int):
             return self._stud_to_teach.get(student, [])
         return self._stud_to_teach.get(student.uco, [])
 
-    def get_students(self, teacher : Union[int, Person]) -> List[Person]:
+    def get_students(self, teacher: Union[int, Person]) -> List[Person]:
         if isinstance(teacher, int):
             return self._teach_to_stud.get(teacher, [])
         return self._teach_to_stud.get(teacher.uco, [])
 
 
-def getkey(path : str) -> Optional[str]:
+def getkey(path: str) -> Optional[str]:
     """
     Try to parse api key from given directory from file name "isnotebook.key".
     """
@@ -76,7 +76,7 @@ def getkey(path : str) -> Optional[str]:
         return None
 
 
-def _get_node(node : ET.Element, childtagname : str, *args : str)\
+def _get_node(node: ET.Element, childtagname: str, *args: str)\
         -> ET.Element:
     for child in node:
         if child.tag == childtagname:
@@ -84,12 +84,11 @@ def _get_node(node : ET.Element, childtagname : str, *args : str)\
                 return _get_node(child, *args)
             else:
                 return child
-    raise NotebookException(
-              "Could not find childtagname in {}\ntext: {}\nitems: {}"
-              .format(node.tag, node.text, node.items()))
+    raise NotebookException(f"Could not find childtagname in {node.tag}\n"
+                            f"text: {node.text}\nitems: {node.items()}")
 
 
-def _extract(node : ET.Element, *args : str) -> str:
+def _extract(node: ET.Element, *args: str) -> str:
     t = _get_node(node, *args).text
     if t is None:
         return ""
@@ -99,24 +98,24 @@ def _extract(node : ET.Element, *args : str) -> str:
 class Entry:
     STARNUM = re.compile(r"\*[0-9]*\.?[0-9]*")
 
-    def __init__(self, text : str,
-                 timestamp : Optional[datetime.datetime] = None) -> None:
+    def __init__(self, text: str,
+                 timestamp: Optional[datetime.datetime] = None) -> None:
         self.text = text
         self.timestamp = timestamp
 
     def points(self) -> float:
-        def ft(x : str) -> float:
+        def ft(x: str) -> float:
             if x == "":
                 return 0
             return float(x)
-        return sum([ft(x.group()[1:]) for x in Entry.STARNUM.finditer(self.text)])
+        return sum(ft(x.group()[1:])
+                   for x in Entry.STARNUM.finditer(self.text))
 
 
 class Connection:
-
-    def __init__(self, course : Optional[str] = None,
-                 faculty : Optional[str] = None,
-                 api_key : Optional[str] = None) -> None:
+    def __init__(self, course: Optional[str] = None,
+                 faculty: Optional[str] = None,
+                 api_key: Optional[str] = None) -> None:
         """
         Initialize a new instance.
         Course has to be set.
@@ -130,13 +129,14 @@ class Connection:
             api_key = getkey(".")
         self.__DEFARGS = {"klic": api_key,
                           "fakulta": "1433",
-                         }
+                          }
         if course is not None:
             self.__DEFARGS['kod'] = course
         if faculty is not None:
             self.__DEFARGS['fakulta'] = faculty
 
-    def __raw_req(self, **kvargs : Union[Optional[str], List[str]]) -> ET.Element:
+    def __raw_req(self, **kvargs: Union[Optional[str], List[str]]) \
+            -> ET.Element:
         for k, v in self.__DEFARGS.items():
             if k not in kvargs or kvargs[k] is None:
                 kvargs[k] = v
@@ -149,13 +149,13 @@ class Connection:
         except requests.exceptions.RequestException as ex:
             raise NotebookException(f"Connection error: {ex}")
         if req.status_code != 200:
-            raise NotebookException("Error {} {}".format(req.status_code, req.reason))
+            raise NotebookException(f"Error {req.status_code} {req.reason}")
         x = ET.fromstring(req.text)
         if x.tag == "CHYBA":
             raise NotebookException(x.text)
         return x
 
-    def notebooks(self, course : Optional[str] = None) -> List[Notebook]:
+    def notebooks(self, course: Optional[str] = None) -> List[Notebook]:
         """
         Get a list of notebooks for a given course.
         If the course was set in constructor, it does not need to be set here.
@@ -168,7 +168,7 @@ class Connection:
                                 _extract(child, "ZKRATKA")))
         return out
 
-    def course_info(self, course : Optional[str] = None) -> Course:
+    def course_info(self, course: Optional[str] = None) -> Course:
         """
         Get information about a course, this includes lists of teachers.
         """
@@ -181,18 +181,18 @@ class Connection:
                       teachers)
 
     @staticmethod
-    def _get_person(data : ET.Element) -> Person:
+    def _get_person(data: ET.Element) -> Person:
         return Person(_extract(data, "JMENO"),
                       _extract(data, "PRIJMENI"),
                       int(_extract(data, "UCO")))
 
     @staticmethod
-    def _push_dict(d : Dict[A, List[B]], key : A, val : B) -> None:
+    def _push_dict(d: Dict[A, List[B]], key: A, val: B) -> None:
         if key not in d:
             d[key] = []
         d[key].append(val)
 
-    def seminars(self, course : Optional[str] = None) -> Seminars:
+    def seminars(self, course: Optional[str] = None) -> Seminars:
         """
         Get information about seminars, including mapping from students to
         teachers, and from teachers to students.
@@ -204,9 +204,9 @@ class Connection:
                 continue
             seminar_ids.append(_extract(sem, "OZNACENI"))
 
-        def get_mappings(data : ET.Element, kind : str) -> Tuple[dict, dict]:
-            x_to_sem : Dict[int, List[str]] = {}
-            sem_to_x : Dict[str, List[Person]] = {}
+        def get_mappings(data: ET.Element, kind: str) -> Tuple[dict, dict]:
+            x_to_sem: Dict[int, List[str]] = {}
+            sem_to_x: Dict[str, List[Person]] = {}
             for sem in data:
                 if sem.tag != "SEMINAR":
                     continue
@@ -226,12 +226,12 @@ class Connection:
         teach_to_sem, sem_to_teach = get_mappings(teachers_data, "CVICICI")
 
         students_data = self.__raw_req(kod=course, operace="seminar-seznam",
-                                      seminar=seminar_ids)
+                                       seminar=seminar_ids)
 
         stud_to_sem, sem_to_stud = get_mappings(students_data, "STUDENT")
 
-        stud_to_teach : Dict[int, List[Person]] = {}
-        teach_to_stud : Dict[int, List[Person]] = {}
+        stud_to_teach: Dict[int, List[Person]] = {}
+        teach_to_stud: Dict[int, List[Person]] = {}
 
         for stud, sem in stud_to_sem.items():
             for s in sem:
@@ -245,20 +245,21 @@ class Connection:
         return Seminars(stud_to_teach=stud_to_teach,
                         teach_to_stud=teach_to_stud)
 
-    def attendance_notebooks(self, course : Optional[str] = None) -> List[Notebook]:
+    def attendance_notebooks(self, course: Optional[str] = None)\
+            -> List[Notebook]:
         """
         Get list of notebooks used for attendance tracking.
         """
         return [x for x in self.notebooks(course) if x.type == 5]
 
-    def notebook(self, shortcut : str, course : Optional[str] = None)\
-                      -> Dict[int, Entry]:
+    def notebook(self, shortcut: str, course: Optional[str] = None)\
+            -> Dict[int, Entry]:
         """
         Returns a mappings UCO -> Entry
         """
         data = self.__raw_req(kod=course, operace="blok-dej-obsah",
                               zkratka=shortcut)
-        out : Dict[int, Entry] = {}
+        out: Dict[int, Entry] = {}
         for child in data:
             assert child.tag == "STUDENT"
             skip = False
@@ -276,26 +277,26 @@ class Connection:
             out[uco] = Entry(contents, parse_date(change))
         return out
 
-    def get(self, shortcut : str, course : Optional[str] = None)\
-                      -> Dict[int, Entry]:
+    def get(self, shortcut: str, course: Optional[str] = None)\
+            -> Dict[int, Entry]:
         return self.notebook(shortcut, course)
 
-    def students_list(self, course : Optional[str] = None) -> List[Person]:
+    def students_list(self, course: Optional[str] = None) -> List[Person]:
         """
         Get a list of students.
         """
         data = self.__raw_req(kod=course, operace="predmet-seznam")
-        students : List[Person] = []
+        students: List[Person] = []
         for st in data:
             students.append(Person(_extract(st, "JMENO"),
                                    _extract(st, "PRIJMENI"),
                                    int(_extract(st, "UCO"))))
         return students
 
-    def create_notebook(self, name : str, shortcut : str,
-                        course : Optional[str] = None,
-                        visible : bool = False, statistics : bool = False)\
-                        -> bool:
+    def create_notebook(self, name: str, shortcut: str,
+                        course: Optional[str] = None,
+                        visible: bool = False, statistics: bool = False)\
+            -> bool:
         """
         Creates a new notebook given its name and shortcut.
         """
@@ -309,19 +310,18 @@ class Connection:
         except NotebookException:
             return False
 
-    def get_or_create(self, name : str, shortcut : str,
-                      course : Optional[str] = None,
-                      visible : bool = False, statistics : bool = False)\
-                      -> Dict[int, Entry]:
-        if shortcut not in [ x.short for x in self.notebooks(course) ]:
+    def get_or_create(self, name: str, shortcut: str,
+                      course: Optional[str] = None,
+                      visible: bool = False, statistics: bool = False)\
+            -> Dict[int, Entry]:
+        if shortcut not in [x.short for x in self.notebooks(course)]:
             self.create_notebook(shortcut=shortcut, name=name, course=course,
                                  visible=visible, statistics=statistics)
         return self.notebook(shortcut, course=course)
 
-
-    def store(self, short : str, uco : int, entry : Entry,
-              course : Optional[str] = None, overwrite : bool = False)\
-              -> None:
+    def store(self, short: str, uco: int, entry: Entry,
+              course: Optional[str] = None, overwrite: bool = False)\
+            -> None:
         """
         Writes given (modified) entry to IS, the update is by default works
         only if timestamp in the entry matches timestamp in IS or if there is
@@ -335,34 +335,32 @@ class Connection:
             args['poslzmeneno'] = serialize_date(entry.timestamp)
         self.__raw_req(**args)
 
-
     @staticmethod
-    def parse_date(date : str) -> datetime.datetime:
-        raw = datetime.datetime(year = int(date[:4]),
-                                month = int(date[4:6]),
-                                day = int(date[6:8]),
-                                hour = int(date[8:10]),
-                                minute = int(date[10:12]),
-                                second = int(date[12:14]))
+    def parse_date(date: str) -> datetime.datetime:
+        raw = datetime.datetime(year=int(date[:4]),
+                                month=int(date[4:6]),
+                                day=int(date[6:8]),
+                                hour=int(date[8:10]),
+                                minute=int(date[10:12]),
+                                second=int(date[12:14]))
         tz = get_localzone()
         try:
             return tz.localize(raw, is_dst=None)  # type: ignore
         except Exception:
             return tz.localize(raw, is_dst=False)  # type: ignore
 
-
-
-
     @staticmethod
-    def serialize_date(date : datetime.datetime) -> str:
-        return "%04d%02d%02d%02d%02d%02d" % (date.year, date.month, date.day,
-                                             date.hour, date.minute, date.second)
+    def serialize_date(date: datetime.datetime) -> str:
+        return "%04d%02d%02d%02d%02d%02d" % (date.year,  # noqa: FS001
+                                             date.month, date.day, date.hour,
+                                             date.minute, date.second)
 
-def serialize_date(date : datetime.datetime) -> str:
+
+def serialize_date(date: datetime.datetime) -> str:
     return Connection.serialize_date(date)
 
 
-def parse_date(date : str) -> datetime.datetime:
+def parse_date(date: str) -> datetime.datetime:
     return Connection.parse_date(date)
 
 # vim: colorcolumn=80 expandtab sw=4 ts=4

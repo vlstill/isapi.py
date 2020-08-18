@@ -1,0 +1,4 @@
+[flake8]
+ignore =
+	# type annotation on self
+	ANN101
