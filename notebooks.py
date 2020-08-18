@@ -68,7 +68,9 @@ def getkey(path : str) -> Optional[str]:
     Try to parse api key from given directory from file name "isnotebook.key".
     """
     try:
-        with open(os.path.join(path, "isnotebook.key"), "r") as f:
+        if os.path.isdir(path):
+            path = os.path.join(path, "isnotebook.key")
+        with open(path, "r") as f:
             return f.read().strip()
     except Exception:
         return None
@@ -122,6 +124,8 @@ class Connection:
         or provided.
         The default faculty is FI.
         """
+        if api_key is not None and os.path.exists(api_key):
+            api_key = getkey(api_key)
         if api_key is None:
             api_key = getkey(".")
         self.__DEFARGS = {"klic": api_key,
