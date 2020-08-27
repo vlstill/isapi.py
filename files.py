@@ -1,6 +1,7 @@
 import requests
 import requests.exceptions
 import json
+from dateutil.parser import isoparse
 from isapi.iscommon import ISAPIException
 from typing import Optional, Union, List
 
@@ -22,17 +23,21 @@ class FileMeta:
         self.name = data.get("nazev")
         self.annotation = data.get("popis")
         self.read = bool(int(data.get("mam_precteno", "0")))
-        self.mime: Optional[str] = None
         if "objekty" in data and len(data["objekty"]):
             obj = data["objekty"]["objekt"][0]
             self.ispath = obj["cesta"]
             if self.name is None:
                 self.name = obj["jmeno_souboru"]
             self.shortname = obj["jmeno_souboru"]
-            self.mime = obj["mime_type"]
+            self.mime: Optional[str] = obj["mime_type"]
             self.author = int(obj["vlozil_uco"])
+            self.change_time = isoparse(obj["vlozeno"])
+            self.objid: Optional[int] = int(obj["objekt_id"])
         else:
+            self.mime = None
             self.author = int(data["zmenil_uco"])
+            self.change_time = isoparse(data["zmeneno"])
+            self.objid = None
 
 
 class DirMeta(FileMeta):
