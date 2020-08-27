@@ -3,11 +3,15 @@ import requests.exceptions
 import json
 from dateutil.parser import isoparse
 from isapi.iscommon import ISAPIException
+import posixpath
 from typing import Optional, Union, List
+from enum import Enum, auto
 
 
 class FileAPIException(ISAPIException):
-    pass
+    def __init__(self, message: str, api_error: Optional[str] = None) -> None:
+        super().__init__(message)
+        self.api_error = api_error
 
 
 class APIKey:
@@ -62,6 +66,20 @@ class FileData:
         self.meta = meta
 
 
+class OnConflict(Enum):
+    Error = auto()
+    Overwrite = auto()
+    Rename = auto()
+
+    def to_is(self) -> str:
+        if self is OnConflict.Error:
+            return "er"
+        if self is OnConflict.Overwrite:
+            return "wr"
+        if self is OnConflict.Rename:
+            return "re"
+
+
 class Connection:
     def __init__(self, api_key: Optional[APIKey] = None) -> None:
         self.api_key = api_key
@@ -76,6 +94,42 @@ class Connection:
             return requests.get(url, auth=self.auth)
         except requests.exceptions.RequestException as ex:
             raise FileAPIException(f"Connection error: {ex}")
+
+    def _rfmgr(self, args: dict, files: Optional[dict] = None) -> dict:
+        if files is None:
+            files = {}
+        # IS breaks if directory URL does not end with /
+        if "furl" in args and not args["furl"].endswith("/"):
+            args["furl"] += "/"
+        for k in list(args):
+            if args[k] is None:
+                del args[k]
+
+        try:
+            rsp = requests.post("https://is.muni.cz/auth/dok/rfmgr.pl",
+                                data=args, files=files, auth=self.auth)
+        except requests.exceptions.RequestException as ex:
+            print(ex.request)
+            print(ex.request.headers)
+            print(ex.request.body)
+            print(args)
+            raise FileAPIException(f"Connection error: {ex}")
+
+        if rsp.status_code != 200:
+            raise FileAPIException("rfmgr.pl returned HTTP code "
+                                   f"{rsp.status_code}")
+        if rsp.text.startswith("Majitel neosobního účtu"):
+            raise FileAPIException("rfmgr.pl API error: not permitted, "
+                                   "see IS non-personal account settings")
+        if not rsp.text.startswith("{"):
+            print(rsp.text)
+            raise FileAPIException("rfmgr.pl API error: unexpected result"
+                                   "format, probably bad request")
+        data: dict = json.loads(rsp.text)
+        if "chyba" in data:
+            raise FileAPIException(f"rfmgr.pl API error: {data['chyba']}",
+                                   api_error=data['chyba'])
+        return data
 
     def list_directory(self, path: Union[str, DirMeta]) -> DirMeta:
         """
@@ -107,5 +161,52 @@ class Connection:
                         content_type=resp.headers.get("content-type",
                                                       "text/plain"),
                         meta=meta)
+
+    def upload_file(self, file_path: str, is_path: str,
+                    as_path: Optional[str] = None,
+                    long_name: Optional[str] = None,
+                    description: Optional[str] = None,
+                    on_conflict: OnConflict = OnConflict.Error) -> None:
+        if as_path is None:
+            as_path = posixpath.basename(file_path)
+        basename = posixpath.basename(as_path)
+        # dirname returns '' without dir
+        furl = posixpath.normpath(posixpath.join(is_path,
+                                  posixpath.dirname(as_path)))
+
+        self._rfmgr({"op": "vlso",
+                     "furl": furl,
+                     "jmeno_souboru_0": basename,
+                     "nazev_0": long_name,
+                     "popis_0": description,
+                     "kolize": on_conflict.to_is()},
+                    {"FILE_0": (basename, open(file_path, 'rb'))}),
+
+    EXISTS_MSG = "Složka s tímto názvem již existuje"
+    SHORT_EXISTS_MSG = "Pokoušíte se použít zkratku, která již v této složce "\
+                       "existuje."
+
+    def mkdir(self, is_path: str, long_name: Optional[str] = None,
+              description: Optional[str] = None) -> bool:
+        "Returns true if the dir was actually returned."
+        while is_path[-1:] == "/":
+            is_path = posixpath.dirname(is_path)
+        dirname = posixpath.basename(is_path)
+        path = posixpath.dirname(is_path)
+
+        try:
+            self._rfmgr({"op": "vlsl",
+                         "furl": path,
+                         "zkratka_1": dirname,
+                         "nazev_1": long_name or dirname,
+                         "popis_1": description})
+            return True
+        except FileAPIException as ex:
+            if ex.api_error \
+                    and (Connection.EXISTS_MSG in ex.api_error
+                         or Connection.SHORT_EXISTS_MSG in ex.api_error):
+                return False
+            raise
+
 
 # vim: colorcolumn=80 expandtab sw=4 ts=4
