@@ -98,8 +98,13 @@ class Connection:
     def _rfmgr(self, args: dict, files: Optional[dict] = None) -> dict:
         if files is None:
             files = {}
+        # IS breaks if directory URL does not end with /
         if "furl" in args and not args["furl"].endswith("/"):
             args["furl"] += "/"
+        for k in list(args):
+            if args[k] is None:
+                del args[k]
+
         try:
             rsp = requests.post("https://is.muni.cz/auth/dok/rfmgr.pl",
                                 data=args, files=files, auth=self.auth)
@@ -159,6 +164,8 @@ class Connection:
 
     def upload_file(self, file_path: str, is_path: str,
                     as_path: Optional[str] = None,
+                    long_name: Optional[str] = None,
+                    description: Optional[str] = None,
                     on_conflict: OnConflict = OnConflict.Error) -> None:
         if as_path is None:
             as_path = posixpath.basename(file_path)
@@ -166,13 +173,21 @@ class Connection:
         # dirname returns '' without dir
         furl = posixpath.normpath(posixpath.join(is_path,
                                   posixpath.dirname(as_path)))
+
         self._rfmgr({"op": "vlso",
                      "furl": furl,
-                     "proved": 1,
+                     "jmeno_souboru_0": basename,
+                     "nazev_0": long_name,
+                     "popis_0": description,
                      "kolize": on_conflict.to_is()},
-                    {"FILE_1": (basename, open(file_path, 'rb'))}),
+                    {"FILE_0": (basename, open(file_path, 'rb'))}),
 
-    def mkdir(self, is_path: str) -> bool:
+    EXISTS_MSG = "Složka s tímto názvem již existuje"
+    SHORT_EXISTS_MSG = "Pokoušíte se použít zkratku, která již v této složce "\
+                       "existuje."
+
+    def mkdir(self, is_path: str, long_name: Optional[str] = None,
+              description: Optional[str] = None) -> bool:
         "Returns true if the dir was actually returned."
         while is_path[-1:] == "/":
             is_path = posixpath.dirname(is_path)
@@ -182,12 +197,13 @@ class Connection:
         try:
             self._rfmgr({"op": "vlsl",
                          "furl": path,
-                         "nazev_1": dirname,
-                         "proved": 1})
+                         "zkratka_1": dirname,
+                         "nazev_1": long_name or dirname,
+                         "popis_1": description})
             return True
         except FileAPIException as ex:
-            exists_msg = "Složka s tímto názvem již existuje"
-            if ex.api_error and exists_msg in ex.api_error:
+            if ex.api_error and (Connection.EXISTS_MSG in ex.api_error or
+                                 Connection.SHORT_EXISTS_MSG in ex.api_error):
                 return False
             raise
 
