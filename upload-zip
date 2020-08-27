@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+
+import argparse
+import files
+import sys
+
+
+def cmdparser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Upload ZIP file (possibly with metadata) to IS using "
+                    "commandline")
+    parser.add_argument('zip', metavar="UPLOAD.zip", nargs=1, type=str,
+                        help="ZIP file to upload")
+    parser.add_argument('is_path', metavar="IS_PATH", nargs=1, type=str,
+                        help="Path in IS, for example "
+                             "'/el/fi/podzim2020/IV074/um/'")
+    parser.add_argument('--overwrite', action='store_const',
+                        const=True, default=False,
+                        help="Overwrite existing files")
+    parser.add_argument('--use-metadata', '--metadata', action='store_const',
+                        const=True, default=False,
+                        help="Use XML metadata files (is_folder_info.xml)")
+    parser.add_argument('--ignore-top-level-dir', action='store_const',
+                        const=True, default=False,
+                        help="Ignore (strip) top-level directory in the ZIP "
+                             "file")
+    parser.add_argument('--auth', type=files.APIKey, required=False,
+                        help="Authentication token for non-personal account."
+                             "If not specified is loaded from isfiles.key.")
+
+    return parser
+
+
+if __name__ == "__main__":
+    parser = cmdparser()
+    args = parser.parse_args()
+    conn = files.Connection(args.auth)
+    try:
+        conn.upload_zip(args.is_path[0], args.zip[0], overwrite=args.overwrite,
+                        ignore_top_level_dir=args.ignore_top_level_dir,
+                        use_metadata=args.use_metadata)
+    except files.FileAPIException as ex:
+        if ex.api_error is not None:
+            print(ex.api_error, file=sys.stderr)
+            sys.exit(1)
+        raise
+
+# vim: colorcolumn=80 expandtab sw=4 ts=4
