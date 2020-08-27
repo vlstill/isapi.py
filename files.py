@@ -208,5 +208,21 @@ class Connection:
                 return False
             raise
 
+    def upload_zip(self, is_path: str, zip_path: str, use_metadata=False,
+                   ignore_top_level_dir=False, overwrite=False) -> None:
+        args = {"op": "imzi",
+                "furl": is_path,
+                "servis": "a" if use_metadata else "n",
+                "filename": "upload.zip"}
+        # IS does seem to ignore value of these arguments and just look if they
+        # are present
+        if ignore_top_level_dir:
+            args["igntop"] = "a"
+        if overwrite:
+            args["prep"] = "a"
+        self._rfmgr(args,
+                    {"FILE": ("upload.zip", open(zip_path, 'rb'),
+                              "application/x-zip-compressed")})
+
 
 # vim: colorcolumn=80 expandtab sw=4 ts=4
