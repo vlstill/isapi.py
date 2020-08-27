@@ -202,8 +202,9 @@ class Connection:
                          "popis_1": description})
             return True
         except FileAPIException as ex:
-            if ex.api_error and (Connection.EXISTS_MSG in ex.api_error or
-                                 Connection.SHORT_EXISTS_MSG in ex.api_error):
+            if ex.api_error \
+                    and (Connection.EXISTS_MSG in ex.api_error
+                         or Connection.SHORT_EXISTS_MSG in ex.api_error):
                 return False
             raise
 
