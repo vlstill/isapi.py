@@ -1,11 +1,13 @@
+import posixpath
 import requests
 import requests.exceptions
 import json
+
 from dateutil.parser import isoparse
-from isapi.iscommon import ISAPIException
-import posixpath
-from typing import Optional, Union, List
 from enum import Enum, auto
+from isapi.iscommon import ISAPIException
+from json.decoder import JSONDecodeError
+from typing import Optional, Union, List
 
 
 class FileAPIException(ISAPIException):
@@ -141,7 +143,11 @@ class Connection:
             path = path.ispath
         text = self._get('https://is.muni.cz/auth/dok/fmgr_api?'
                          f'url={path};format=json').text
-        data = json.loads(text)
+        try:
+            data = json.loads(text)
+        except JSONDecodeError:
+            raise FileAPIException("Invalid reply format, probably forbidden "
+                                   f"access:\n{text}")
         if "chyba" in data:
             emsg = data['chyba']
             raise FileAPIException(f"File manager API error: {emsg}")
