@@ -16,6 +16,10 @@ class FileAPIException(ISAPIException):
         self.api_error = api_error
 
 
+class FileDoesNotExistException(FileAPIException):
+    pass
+
+
 class APIKey:
     def __init__(self, raw_api_key: str) -> None:
         self.raw_api_key = raw_api_key
@@ -147,6 +151,7 @@ class Connection:
         """
         if not isinstance(path, str):
             path = path.ispath
+        assert isinstance(path, str)
         text = self._get('https://is.muni.cz/auth/dok/fmgr_api?'
                          f'url={path};format=json').text
         try:
@@ -156,6 +161,8 @@ class Connection:
                                    f"access:\n{text}")
         if "chyba" in data:
             emsg = data['chyba']
+            if emsg == 'Zadaná složka nebo soubor nebyl nalezen.':
+                raise FileDoesNotExistException(path)
             raise FileAPIException(f"File manager API error: {emsg}")
         dirmeta = DirMeta(data["uzel"][0])
         if "poduzly" in data["uzel"][0]:
