@@ -45,6 +45,12 @@ class FileMeta:
             self.change_time = isoparse(data["zmeneno"])
             self.objid = None
 
+    def __repr__(self) -> str:
+        return f"is.muni.cz:{self.ispath}"
+
+    def __str__(self) -> str:
+        return repr(self)
+
 
 class DirMeta(FileMeta):
     def __init__(self, data: dict) -> None:
