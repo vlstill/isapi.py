@@ -228,8 +228,10 @@ class Connection:
                 return False
             raise
 
-    def upload_zip(self, is_path: str, zip_path: str, use_metadata=False,
-                   ignore_top_level_dir=False, overwrite=False) -> None:
+    def upload_zip(self, is_path: str, zip_path: str,
+                   use_metadata: bool = False,
+                   ignore_top_level_dir: bool = False,
+                   overwrite: bool = False) -> None:
         args = {"op": "imzi",
                 "furl": is_path,
                 "servis": "a" if use_metadata else "n",
