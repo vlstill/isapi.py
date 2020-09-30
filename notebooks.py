@@ -4,9 +4,9 @@ import xml.etree.ElementTree as ET
 import re
 from typing import List, Dict, Tuple, Optional, TypeVar, Union
 import datetime
-from tzlocal import get_localzone  # type: ignore
 import os.path
 from isapi.iscommon import ISAPIException
+from isapi import iscommon
 
 
 A = TypeVar("A")
@@ -343,11 +343,7 @@ class Connection:
                                 hour=int(date[8:10]),
                                 minute=int(date[10:12]),
                                 second=int(date[12:14]))
-        tz = get_localzone()
-        try:
-            return tz.localize(raw, is_dst=None)  # type: ignore
-        except Exception:
-            return tz.localize(raw, is_dst=False)  # type: ignore
+        return iscommon.localize_timestamp(raw)
 
     @staticmethod
     def serialize_date(date: datetime.datetime) -> str:

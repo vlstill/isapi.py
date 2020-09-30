@@ -8,6 +8,7 @@ from enum import Enum, auto
 from isapi.iscommon import ISAPIException
 from json.decoder import JSONDecodeError
 from typing import Optional, Union, List
+from isapi.iscommon import localize_timestamp
 
 
 class FileAPIException(ISAPIException):
@@ -41,12 +42,12 @@ class FileMeta:
             self.shortname = obj["jmeno_souboru"]
             self.mime: Optional[str] = obj["mime_type"]
             self.author = int(obj["vlozil_uco"])
-            self.change_time = isoparse(obj["vlozeno"])
+            self.change_time = localize_timestamp(isoparse(obj["vlozeno"]))
             self.objid: Optional[int] = int(obj["objekt_id"])
         else:
             self.mime = None
             self.author = int(data["zmenil_uco"])
-            self.change_time = isoparse(data["zmeneno"])
+            self.change_time = localize_timestamp(isoparse(data["zmeneno"]))
             self.objid = None
 
     def __repr__(self) -> str:
