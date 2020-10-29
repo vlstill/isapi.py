@@ -3,6 +3,7 @@ import requests
 import requests.exceptions
 import json
 import logging
+import pprint
 
 from dateutil.parser import isoparse
 from enum import Enum, auto
@@ -28,7 +29,8 @@ class APIKey:
 
 
 class FileMeta:
-    def __init__(self, data: dict) -> None:
+    def __init__(self, data: dict, logger: logging.Logger) -> None:
+        self.logger = logger
         self.dir = False
         self.ispath = data["cesta"]
         self.shortname = data["zkratka"]
@@ -45,7 +47,14 @@ class FileMeta:
             self.author = int(obj["vlozil_uco"])
             self.change_time = localize_timestamp(isoparse(obj["vlozeno"]))
             self.objid: Optional[int] = int(obj["objekt_id"])
+            if len(data["objekty"]) > 1:
+                self.logger.warning("Found node with more then one object:\n"
+                                    + pprint.pformat(data))
         else:
+            if int(data["pocet_poduzlu"]) == 0:
+                # not a dir
+                self.logger.warning("Found node without objects:\n"
+                                    + pprint.pformat(data))
             self.mime = None
             self.author = int(data["zmenil_uco"])
             self.change_time = localize_timestamp(isoparse(data["zmeneno"]))
@@ -59,16 +68,16 @@ class FileMeta:
 
 
 class DirMeta(FileMeta):
-    def __init__(self, data: dict) -> None:
-        FileMeta.__init__(self, data)
+    def __init__(self, data: dict, logger: logging.Logger) -> None:
+        super().__init__(data, logger)
         self.dir = True
         self.entries: List[FileMeta] = []
 
     def _append(self, data: dict) -> None:
         if int(data["pocet_poduzlu"]) == 0:
-            self.entries.append(FileMeta(data))
+            self.entries.append(FileMeta(data, self.logger))
         else:
-            self.entries.append(DirMeta(data))
+            self.entries.append(DirMeta(data, self.logger))
 
 
 class FileData:
@@ -177,7 +186,7 @@ class Connection:
                 raise FileDoesNotExistException(path)
             self.logger.error(f"File API error: {emsg}")
             raise FileAPIException(f"File manager API error: {emsg}")
-        dirmeta = DirMeta(data["uzel"][0])
+        dirmeta = DirMeta(data["uzel"][0], self.logger)
         if "poduzly" in data["uzel"][0]:
             for i in data["uzel"][0]["poduzly"]["poduzel"]:
                 dirmeta._append(i)
