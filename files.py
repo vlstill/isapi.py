@@ -2,6 +2,7 @@ import posixpath
 import requests
 import requests.exceptions
 import json
+import logging
 
 from dateutil.parser import isoparse
 from enum import Enum, auto
@@ -101,11 +102,14 @@ class Connection:
                 self.api_key = APIKey(f.read().strip())
         login, password = self.api_key.raw_api_key.split(':', 1)
         self.auth = (login, password)
+        self.logger = logging.getLogger("isapi.py/files")
+        self.logger.debug("IS Files connection initialized")
 
     def _get(self, url: str) -> requests.Response:
         try:
             return requests.get(url, auth=self.auth)
         except requests.exceptions.RequestException as ex:
+            self.logger.warning("File API conncetion error", exc_info=True)
             raise FileAPIException(f"Connection error: {ex}")
 
     def _rfmgr(self, args: dict, files: Optional[dict] = None) -> dict:
@@ -122,26 +126,32 @@ class Connection:
             rsp = requests.post("https://is.muni.cz/auth/dok/rfmgr.pl",
                                 data=args, files=files, auth=self.auth)
         except requests.exceptions.RequestException as ex:
-            print(ex.request)
-            print(ex.request.headers)
-            print(ex.request.body)
-            print(args)
+            self.logger.error(f"File API conncetion error args = {args}, "
+                              f"req = {ex.request}", exc_info=True)
             raise FileAPIException(f"Connection error: {ex}")
 
         if rsp.status_code != 200:
+            self.logger.warning("File API conncetion error: "
+                                f"status {rsp.status_code}")
             raise FileAPIException("rfmgr.pl returned HTTP code "
                                    f"{rsp.status_code}")
+
         if rsp.text.startswith("Majitel neosobního účtu"):
+            self.logger.error(f"File API account error {rsp.text}")
             raise FileAPIException("rfmgr.pl API error: not permitted, "
                                    "see IS non-personal account settings")
+
         if not rsp.text.startswith("{"):
-            print(rsp.text)
+            self.logger.error(f"File API account error: {rsp.text}")
             raise FileAPIException("rfmgr.pl API error: unexpected result"
                                    "format, probably bad request")
+
         data: dict = json.loads(rsp.text)
         if "chyba" in data:
+            self.logger.warning(f"File API error: {data['chyba']}")
             raise FileAPIException(f"rfmgr.pl API error: {data['chyba']}",
                                    api_error=data['chyba'])
+
         return data
 
     def list_directory(self, path: Union[str, DirMeta]) -> DirMeta:
@@ -158,12 +168,14 @@ class Connection:
         try:
             data = json.loads(text)
         except JSONDecodeError:
+            self.logger.error(f"File API error: invalid reply {text}")
             raise FileAPIException("Invalid reply format, probably forbidden "
                                    f"access:\n{text}")
         if "chyba" in data:
             emsg = data['chyba']
             if emsg == 'Zadaná složka nebo soubor nebyl nalezen.':
                 raise FileDoesNotExistException(path)
+            self.logger.error(f"File API error: {emsg}")
             raise FileAPIException(f"File manager API error: {emsg}")
         dirmeta = DirMeta(data["uzel"][0])
         if "poduzly" in data["uzel"][0]:
