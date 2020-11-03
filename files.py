@@ -23,6 +23,10 @@ class FileDoesNotExistException(FileAPIException):
     pass
 
 
+class IsDirectoryException(FileAPIException):
+    pass
+
+
 class APIKey:
     def __init__(self, raw_api_key: str) -> None:
         self.raw_api_key = raw_api_key
@@ -74,10 +78,14 @@ class DirMeta(FileMeta):
         self.entries: List[FileMeta] = []
 
     def _append(self, data: dict) -> None:
-        if int(data["pocet_poduzlu"]) == 0:
-            self.entries.append(FileMeta(data, self.logger))
-        else:
-            self.entries.append(DirMeta(data, self.logger))
+        self.entries.append(_meta_from_raw(data, self.logger))
+
+
+def _meta_from_raw(raw: dict, logger: logging.Logger) -> FileMeta:
+    if int(raw["pocet_poduzlu"]) == 0:
+        return FileMeta(raw, logger)
+    else:
+        return DirMeta(raw, logger)
 
 
 class FileData:
@@ -163,12 +171,7 @@ class Connection:
 
         return data
 
-    def list_directory(self, path: Union[str, DirMeta]) -> DirMeta:
-        """
-        Expects an IS path, e.g. /el/fi/podzim2018/IB015/ode/hw12/ or a DirMeta
-        object extracted by earlier query. Retuns a DirMeta with single level
-        expanded and no file contents.
-        """
+    def _get_info(self, path: Union[str, FileMeta]) -> dict:
         if not isinstance(path, str):
             path = path.ispath
         assert isinstance(path, str)
@@ -180,24 +183,42 @@ class Connection:
             self.logger.error(f"File API error: invalid reply {text}")
             raise FileAPIException("Invalid reply format, probably forbidden "
                                    f"access:\n{text}")
+        assert isinstance(data, dict)
         if "chyba" in data:
             emsg = data['chyba']
             if emsg == 'Zadaná složka nebo soubor nebyl nalezen.':
                 raise FileDoesNotExistException(path)
             self.logger.error(f"File API error: {emsg}")
             raise FileAPIException(f"File manager API error: {emsg}")
+        return data
+
+    def list_directory(self, path: Union[str, DirMeta]) -> DirMeta:
+        """
+        Expects an IS path, e.g. /el/fi/podzim2018/IB015/ode/hw12/ or a DirMeta
+        object extracted by earlier query. Retuns a DirMeta with single level
+        expanded and no file contents.
+        """
+        data = self._get_info(path)
         dirmeta = DirMeta(data["uzel"][0], self.logger)
         if "poduzly" in data["uzel"][0]:
             for i in data["uzel"][0]["poduzly"]["poduzel"]:
                 dirmeta._append(i)
         return dirmeta
 
+    def file_info(self, path: Union[str, FileMeta]) -> FileMeta:
+        raw = self._get_info(path)
+        return _meta_from_raw(raw["uzel"][0], self.logger)
+
     def get_file(self, path: Union[str, FileMeta]) -> FileData:
-        meta: Optional[FileMeta] = None
         if not isinstance(path, str):
-            meta = path
             path = path.ispath
+        assert isinstance(path, str)
         resp = self._get(f'https://is.muni.cz/auth{path}')
+        # get meta after the file was downloaded, file download cannot get 404,
+        # but this can
+        meta = self.file_info(path)
+        if meta.dir:
+            raise IsDirectoryException(path)
         return FileData(data=resp.content, charset=resp.encoding,
                         content_type=resp.headers.get("content-type",
                                                       "text/plain"),
