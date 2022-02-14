@@ -6,6 +6,7 @@ import logging
 import pprint
 
 from dateutil.parser import isoparse
+from datetime import datetime
 from enum import Enum, auto
 from json.decoder import JSONDecodeError
 from typing import Optional, Union, List
@@ -251,24 +252,69 @@ class Connection:
     def mkdir(self, is_path: str, long_name: Optional[str] = None,
               description: Optional[str] = None) -> bool:
         "Returns true if the dir was actually returned."
+        return self._mkdir(is_path, long_name, description) is not None
+
+    def _mkdir(self, is_path: str, long_name: Optional[str] = None,
+              description: Optional[str] = None) -> Optional[dict]:
         while is_path[-1:] == "/":
             is_path = posixpath.dirname(is_path)
         dirname = posixpath.basename(is_path)
         path = posixpath.dirname(is_path)
 
         try:
-            self._rfmgr({"op": "vlsl",
-                         "furl": path,
-                         "zkratka_1": dirname,
-                         "nazev_1": long_name or dirname,
-                         "popis_1": description})
-            return True
+            return self._rfmgr({"op": "vlsl",
+                                "furl": path,
+                                "zkratka_1": dirname,
+                                "nazev_1": long_name or dirname,
+                                "popis_1": description})
         except FileAPIException as ex:
             if ex.api_error \
                     and (Connection.EXISTS_MSG in ex.api_error
                          or Connection.SHORT_EXISTS_MSG in ex.api_error):
-                return False
+                return None
             raise
+
+    def mkdrop(self, is_path: str, long_name: Optional[str] = None,
+               description: Optional[str] = None,
+               deadline: Optional[datetime] = None) -> bool:
+        """Returns True if the drop directory was successfully created, false
+        if it already existed and was not changed.
+        Raises IsDirectoryException if an error occurs."""
+        res = self._mkdir(is_path, long_name, description)
+        if res is None:
+            return False
+
+        created = is_path
+        if created[-1:] != '/':
+            created += '/'
+        base = posixpath.dirname(posixpath.dirname(created))
+
+        # open drop folder
+        res = self._rfmgr({"op": "zmpr2",
+                           "furl": base,
+                           "akce": "zxpro",
+                           "ch": created})
+
+        if deadline is not None:
+            meta = res["pridatRadky"][created]["js"]
+            mode = next(iter(meta["prava"]["w"].keys()))
+            to = deadline.strftime("%Y%m%d%H%M")
+            new_mode = f"{mode}@{to}"
+
+            self._rfmgr({"op": "zmpr",
+                         "pridat": new_mode,
+                         "furl": base,
+                         "ch": created})
+
+        # set attributes (prepend name, UCO, monitor changes)
+        self._rfmgr({"op": "zmat",
+                     "d_atributy_0_pridatprijm": "pridatprijm",
+                     "d_atributy_0_pridatuco": "pridatuco",
+                     "d_atributy_0_vsechnacteni": "vsechnacteni",
+                     "churl_0": created,
+                     "furl": base})
+
+        return True
 
     def upload_zip(self, is_path: str, zip_path: str,
                    use_metadata: bool = False,
