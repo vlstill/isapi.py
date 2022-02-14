@@ -55,9 +55,10 @@ class FileMeta:
                                     + pprint.pformat(data))
         else:
             if int(data["pocet_poduzlu"]) == 0:
-                # not a dir
-                self.logger.warning("Found node without objects:\n"
-                                    + pprint.pformat(data))
+                # an empty dir or a broken file
+                self.logger.info("Found node without objects:\n"
+                                 + pprint.pformat(data)
+                                 + "… probably an empty dir.")
             self.mime = None
             self.author = int(data["zmenil_uco"])
             self.change_time = localize_timestamp(isoparse(data["zmeneno"]))
