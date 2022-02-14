@@ -72,7 +72,7 @@ def getkey(path: str) -> Optional[str]:
             path = os.path.join(path, "isnotebook.key")
         with open(path, "r") as f:
             return f.read().strip()
-    except Exception:
+    except Exception:  # noqa: B902
         return None
 
 
