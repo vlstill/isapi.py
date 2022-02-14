@@ -10,5 +10,5 @@ def localize_timestamp(raw: datetime) -> datetime:
     tz = get_localzone()
     try:
         return tz.localize(raw, is_dst=None)  # type: ignore
-    except Exception:
+    except Exception:  # noqa: B902
         return tz.localize(raw, is_dst=True)  # type: ignore
