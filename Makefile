@@ -1,4 +1,4 @@
-PY = $(wildcard *.py)
+PY = $(wildcard *.py) upload-zip
 
 -include local.make
 
