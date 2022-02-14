@@ -7,10 +7,9 @@ import pprint
 
 from dateutil.parser import isoparse
 from enum import Enum, auto
-from isapi.iscommon import ISAPIException
 from json.decoder import JSONDecodeError
 from typing import Optional, Union, List
-from isapi.iscommon import localize_timestamp
+from isapi.iscommon import localize_timestamp, ISAPIException
 
 
 class FileAPIException(ISAPIException):
