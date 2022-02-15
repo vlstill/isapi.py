@@ -81,11 +81,19 @@ class DirMeta(FileMeta):
     def _append(self, data: dict) -> None:
         self.entries.append(_meta_from_raw(data, self.logger))
 
-    def __contains__(self, filename: str) -> bool:
+    def get(self, filename: str) -> Optional[FileMeta]:
         for e in self.entries:
             if e.shortname == filename:
-                return True
-        return False
+                return e
+        return None
+
+    def __contains__(self, filename: str) -> bool:
+        return self.get(filename) is not None
+
+    def __getitem__(self, filename: str) -> FileMeta:
+        res = self.get(filename)
+        assert res is not None
+        return res
 
 
 def _meta_from_raw(raw: dict, logger: logging.Logger) -> FileMeta:
