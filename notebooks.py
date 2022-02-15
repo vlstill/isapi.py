@@ -337,12 +337,13 @@ class Connection:
 
     @staticmethod
     def parse_date(date: str) -> datetime.datetime:
+        second = int(date[12:14]) if len(date) >= 14 else 0
         raw = datetime.datetime(year=int(date[:4]),
                                 month=int(date[4:6]),
                                 day=int(date[6:8]),
                                 hour=int(date[8:10]),
                                 minute=int(date[10:12]),
-                                second=int(date[12:14]))
+                                second=second)
         return iscommon.localize_timestamp(raw)
 
     @staticmethod
