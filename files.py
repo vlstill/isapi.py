@@ -116,6 +116,8 @@ class OnConflict(Enum):
     Error = auto()
     Overwrite = auto()
     Rename = auto()
+    Ignore = auto()
+    UpdateIfDifferent = auto()
 
     def to_is(self) -> str:
         if self is OnConflict.Error:
@@ -124,6 +126,7 @@ class OnConflict(Enum):
             return "wr"
         if self is OnConflict.Rename:
             return "re"
+        raise ValueError(f"Cannot convert {self} to IS mode")
 
 
 class Connection:
@@ -251,13 +254,38 @@ class Connection:
         furl = posixpath.normpath(posixpath.join(is_path,
                                   posixpath.dirname(as_path)))
 
-        self._rfmgr({"op": "vlso",
-                     "furl": furl,
-                     "jmeno_souboru_0": basename,
-                     "nazev_0": long_name,
-                     "popis_0": description,
-                     "kolize": on_conflict.to_is()},
-                    {"FILE_0": (basename, open(file_path, 'rb'))}),
+        if on_conflict is OnConflict.Ignore \
+                or on_conflict is OnConflict.UpdateIfDifferent:
+            ls = self.list_directory(furl)
+
+            meta = ls.get(basename)
+            if meta is not None:
+                if on_conflict is OnConflict.Ignore:
+                    return  # nothing to do
+                if long_name != meta.name or description != meta.annotation:
+                    on_conflict = OnConflict.Overwrite
+                    meta.logger.info(
+                        f"File {basename} differs in name or description")
+                else:
+                    # NOTE: there is a race between check and actual upload
+                    # both on the local side and in IS
+                    with open(file_path, 'rb') as fh:
+                        if self.get_file(meta).data != fh.read():
+                            on_conflict = OnConflict.Overwrite
+                            meta.logger.info(
+                                f"File {basename} differs in content")
+        if on_conflict == OnConflict.UpdateIfDifferent:
+            return  # we now know it is not different
+
+        with open(file_path, 'rb') as fh:
+            self._rfmgr({"op": "vlso",
+                         "furl": furl,
+                         "jmeno_souboru_0": basename,
+                         "nazev_0": long_name,
+                         "popis_0": description,
+                         "kolize": on_conflict.to_is()},
+                        {"FILE_0": (basename, fh)})
+
 
     EXISTS_MSG = "Složka s tímto názvem již existuje"
     SHORT_EXISTS_MSG = "Pokoušíte se použít zkratku, která již v této složce "\
