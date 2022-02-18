@@ -282,6 +282,9 @@ class Connection:
         return self.notebook(shortcut, course)
 
     def students_list(self, course: Optional[str] = None) -> List[Person]:
+        return self.get_students(course)
+
+    def get_students(self, course: Optional[str] = None) -> List[Person]:
         """
         Get a list of students.
         """
