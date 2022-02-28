@@ -274,8 +274,11 @@ class Connection:
                             on_conflict = OnConflict.Overwrite
                             meta.logger.info(
                                 f"File {basename} differs in content")
-        if on_conflict == OnConflict.UpdateIfDifferent:
-            return  # we now know it is not different
+
+                if on_conflict == OnConflict.UpdateIfDifferent:
+                    return  # we now know it is not different
+            else:
+                on_conflict = OnConflict.Error
 
         with open(file_path, 'rb') as fh:
             self._rfmgr({"op": "vlso",
